@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="google-site-verification" content="UwvvkwGElCKY_Ef_UK2WshEb1UUzCtzqmlE9RCr5t4s" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NUTBK CSE Class Routine</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- XLSX for parsing Excel/Google Sheets data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2canvas for image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Print Styles */
+        @media print {
+            @page { size: A4 landscape; margin: 8mm; }
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+            #print-area table { width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 8px; text-align: left; margin-bottom: 6px; page-break-inside: avoid; }
+            #print-area th, #print-area td { border: 1px solid #000 !important; padding: 2px 3px; vertical-align: middle; }
+            #print-area th { background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-weight: bold; }
+            #print-area h2 { text-align: center; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #000; }
+            #print-area h3 { font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; margin: 4px 0; color: #1e293b; text-align: left; text-transform: uppercase;}
+            .no-print { display: none !important; }
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { height: 8px; width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans p-4 md:p-8 text-slate-800 flex flex-col justify-between">
+    
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 no-print"></div>
+    
+    <!-- Main Content -->
+    <div class="max-w-[1400px] mx-auto space-y-6 w-full flex-grow">
+        
+        <header class="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col xl:flex-row justify-between items-center gap-6 no-print">
+            <div class="text-center xl:text-left">
+                <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 justify-center xl:justify-start">
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight">NUTBK CSE Class Routine</h1>
+                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md font-bold border border-indigo-100 text-[10px] uppercase tracking-wider flex items-center shadow-sm">
+                        <i class="fa-solid fa-code-branch mr-1.5"></i> Version 5
+                    </span>
+                </div>
+                <p class="text-slate-500 mt-1 text-sm">Filter, Generate and Export Routine + Course Details</p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
+                <div class="flex flex-col gap-2 w-full sm:w-80">
+                    <input type="text" id="routine-url" placeholder="Routine Sheet URL..." class="px-3 py-2 rounded-xl border border-slate-200 text-xs w-full focus:outline-none focus:border-blue-500 bg-slate-50">
+                    <input type="text" id="offering-url" placeholder="Course Offering URL..." class="px-3 py-2 rounded-xl border border-slate-200 text-xs w-full focus:outline-none focus:border-blue-500 bg-slate-50">
+                </div>
+                <div class="flex w-full sm:w-auto gap-2">
+                    <button id="btn-fetch" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 whitespace-nowrap h-full w-full sm:w-auto">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> Auto Fetch
+                    </button>
+                </div>
+                <div class="text-slate-400 text-xs font-bold uppercase hidden sm:block">OR</div>
+                <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 border border-slate-200 w-full sm:w-auto whitespace-nowrap h-full">
+                    <i class="fa-solid fa-folder-open"></i> Upload Routine
+                    <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" class="hidden" />
+                </label>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 no-print">
+            <!-- Filter Section -->
+            <div class="lg:col-span-1 bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 h-fit">
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-blue-600"></i> Filter Criteria
+                </h2>
+                <div id="filter-container" class="space-y-3"></div>
+                <button id="btn-generate" class="w-full mt-5 bg-slate-900 hover:bg-black text-white rounded-xl py-2.5 font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
+                    <i class="fa-regular fa-circle-check"></i> Generate Grid
+                </button>
+            </div>
+            
+            <!-- Table Output Section -->
+            <div class="lg:col-span-4 bg-white p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
+                    <h2 id="preview-title" class="text-lg font-bold flex items-center gap-2 text-slate-800">
+                        <i class="fa-solid fa-table-cells-large text-blue-600"></i> Class Routine
+                    </h2>
+                    <div id="export-buttons" class="flex flex-wrap gap-2 opacity-50 pointer-events-none transition-opacity">
+                        <button id="btn-pdf" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg font-medium hover:bg-rose-100 transition-colors text-xs">
+                            <i class="fa-solid fa-print"></i> PDF
+                        </button>
+                        <button id="btn-doc" class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg font-medium hover:bg-blue-100 transition-colors text-xs">
+                            <i class="fa-solid fa-file-word"></i> Docs
+                        </button>
+                        <button id="btn-excel" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg font-medium hover:bg-emerald-100 transition-colors text-xs">
+                            <i class="fa-solid fa-file-excel"></i> Sheet
+                        </button>
+                        <button id="btn-image" class="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg font-medium hover:bg-purple-100 transition-colors text-xs">
+                            <i class="fa-solid fa-image"></i> Photo
+                        </button>
+                    </div>
+                </div>
+                <div id="table-wrapper" class="w-full overflow-x-auto"></div>
+            </div>
+        </div>
+        
+        <!-- Hidden area structured purely for printing -->
+        <div id="print-area" class="hidden"></div>
+    </div>
+
+    <!-- Footer Area -->
+    <footer class="mt-12 text-center text-slate-500 text-sm no-print py-6 border-t border-slate-200">
+        <p>&copy; <span id="current-year"></span> All Rights Reserved.</p>
+        <p class="mt-1">Developer: <span class="font-bold text-slate-800 hover:text-blue-600 transition-colors">MD. Shinha Sarder</span></p>
+    </footer>
+
+    <script>
+        // Set dynamic copyright year
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // Target URLs matching user's configuration
+        const DEFAULT_ROUTINE_URL = "https://docs.google.com/spreadsheets/d/1gI2qmPK_eW2FDvBrYhgB-bmHOdq5_KAl/edit?usp=sharing&ouid=115261771651945203276&rtpof=true&sd=true";
+        const DEFAULT_OFFERING_URL = "https://docs.google.com/spreadsheets/d/1u_fV-Aq91VRkT1gmWWHSEtD3gWDFVq-t/edit?usp=sharing";
+
+        let rawData = [];
+        let rawDataTimes = [];
+        let previewData = [];
+        let filters = {};
+        let isGenerated = false;
+        let courseMetadata = {};
+
+        const fullDays = {
+            'Sat': 'Saturday', 'Sun': 'Sunday', 'Mon': 'Monday',
+            'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday', 'Fri': 'Friday'
+        };
+        
+        const routineUrlInput = document.getElementById('routine-url');
+        const offeringUrlInput = document.getElementById('offering-url');
+        const btnFetch = document.getElementById('btn-fetch');
+        const fileUploadInput = document.getElementById('file-upload');
+        const filterContainer = document.getElementById('filter-container');
+        const btnGenerate = document.getElementById('btn-generate');
+        const tableWrapper = document.getElementById('table-wrapper');
+        const exportButtons = document.getElementById('export-buttons');
+        const printArea = document.getElementById('print-area');
+        const previewTitle = document.getElementById('preview-title');
+        
+        // Initialize Inputs
+        routineUrlInput.value = DEFAULT_ROUTINE_URL;
+        offeringUrlInput.value = DEFAULT_OFFERING_URL;
+
+        // Toast Notification System
+        function showMessage(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-blue-600';
+            let icon = '<i class="fa-solid fa-circle-info"></i>';
+            
+            if (type === 'success') { bgClass = 'bg-emerald-600'; icon = '<i class="fa-solid fa-circle-check"></i>'; }
+            if (type === 'error') { bgClass = 'bg-rose-600'; icon = '<i class="fa-solid fa-circle-exclamation"></i>'; }
+            if (type === 'warning') { bgClass = 'bg-amber-500'; icon = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+            
+            toast.className = `${bgClass} text-white px-4 py-2.5 rounded-xl shadow-lg text-xs font-medium flex items-center gap-2 transform translate-x-full opacity-0 transition-all duration-300 ease-out`;
+            toast.innerHTML = `${icon} <span>${msg}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => { toast.classList.remove('translate-x-full', 'opacity-0'); }, 10);
+            
+            if(type !== 'warning') {
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full', 'opacity-0');
+                    setTimeout(() => { toast.remove(); }, 300);
+                }, 3500);
+            } else {
+                return toast;
+            }
+        }
+
+        function normalizeCourseCode(code) {
+            return String(code).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        }
+
+        async function fetchCourseOfferings(url) {
+            try {
+                let fetchUrl = url;
+                const idMatch = url.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+                if (idMatch) fetchUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx`;
+
+                const response = await fetch(fetchUrl);
+                if (!response.ok) return false;
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const wb = XLSX.read(arrayBuffer, { type: 'array' });
+                courseMetadata = {};
+
+                wb.SheetNames.forEach(wsname => {
+                    const ws = wb.Sheets[wsname];
+                    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                    if (rows.length < 1) return;
+
+                    let hIdx = -1, cCodeIdx = -1, cTitleIdx = -1, credIdx = -1;
+                    
+                    for (let i = 0; i < Math.min(20, rows.length); i++) {
+                        if (!rows[i]) continue;
+                        let rStr = rows[i].map(c => String(c).replace(/[^a-z0-9]/gi, '').toLowerCase());
+                        
+                        let cc = rStr.findIndex(c => c.includes('coursecode') || c.includes('ccode') || c === 'cc' || c === 'code');
+                        let ct = rStr.findIndex(c => c.includes('coursetitle') || c.includes('title') || c.includes('coursename'));
+                        let cr = rStr.findIndex(c => c.includes('credit') || c === 'cr');
+                        
+                        if (cc !== -1 && ct !== -1) {
+                            hIdx = i; cCodeIdx = cc; cTitleIdx = ct; credIdx = cr;
+                            break;
+                        }
+                    }
+
+                    if (hIdx === -1) return;
+
+                    for (let i = hIdx + 1; i < rows.length; i++) {
+                        let code = String(rows[i][cCodeIdx] || "").trim();
+                        if (!code) continue;
+                        let normCode = normalizeCourseCode(code);
+                        courseMetadata[normCode] = {
+                            title: String(rows[i][cTitleIdx] || "").trim(),
+                            credit: credIdx !== -1 ? String(rows[i][credIdx] || "").trim() : "-"
+                        };
+                    }
+                });
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function processExcelData(wb) {
+            let flatData = [];
+            let allTimes = [];
+            
+            wb.SheetNames.forEach(wsname => {
+                const ws = wb.Sheets[wsname];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                if (rows.length < 2) return;
+
+                let headerRowIdx = -1;
+                for (let i = 0; i < Math.min(20, rows.length); i++) {
+                    if (!rows[i]) continue;
+                    let rStr = rows[i].map(c => String(c).replace(/[^a-z0-9]/gi, '').toLowerCase());
+                    // Flexibly detect header row based on standard CSE formats
+                    if (rStr.some(c => c.includes('cc') || c.includes('course') || c === 'code') && 
+                        rStr.some(c => c === 't' || c.includes('teach') || c.includes('sec') || c.includes('initial'))) {
+                        headerRowIdx = i; break;
+                    }
+                }
+
+                if (headerRowIdx === -1) return;
+
+                let rawHeaders = rows[headerRowIdx].map(c => String(c).trim());
+                let headers = rawHeaders.map(c => String(c).replace(/[^a-z0-9]/gi, '').toLowerCase());
+                
+                let timeRowIdx = -1;
+                // Detect any row above headers that has time formats
+                for (let k = headerRowIdx - 1; k >= 0; k--) {
+                    if (!rows[k]) continue;
+                    let temp = rows[k].map(c => String(c).trim());
+                    let timeMatches = temp.filter(c => /\d{1,2}[:.]\d{2}/.test(c) || /am|pm/i.test(c) || /\d{1,2}\s*-\s*\d{1,2}/.test(c)).length;
+                    if (timeMatches >= 1) {
+                        timeRowIdx = k; break;
+                    }
+                }
+                
+                let timeRow = timeRowIdx !== -1 ? rows[timeRowIdx].map(c => String(c).trim()) : [];
+                let lastTime = "-", filledTimes = [];
+
+                // Detect Times correctly by scanning the length of columns
+                for (let i = 0; i < Math.max(timeRow.length, headers.length); i++) {
+                    let tStr = timeRow[i] ? String(timeRow[i]).trim() : "";
+                    if (tStr && !/^(day|days|room|rm|sec|section|course|code|teacher|t\.? initial|shift)$/i.test(tStr)) {
+                        lastTime = tStr.replace(/\r?\n|\r/g, " ")
+                                       .replace(/–|—|-/g, ' - ')
+                                       .replace(/\s+/g, ' ')
+                                       .trim()
+                                       .toUpperCase()
+                                       .replace(/\s*-\s*/g, ' - ');
+                                       
+                        if(!allTimes.includes(lastTime) && lastTime !== "-") allTimes.push(lastTime);
+                    }
+                    filledTimes[i] = lastTime;
+                }
+
+                let days = [], rooms = [];
+                for(let r = 0; r <= headerRowIdx; r++) {
+                    if(!rows[r]) continue;
+                    for(let c = 0; c < rows[r].length; c++) {
+                        let cell = String(rows[r][c]).trim().toLowerCase();
+                        if(cell === 'day' || cell === 'days') {
+                            if(!days.includes(c)) days.push(c);
+                        }
+                        if(cell.includes('room') || cell === 'rm' || cell === 'class room' || cell === 'room no') {
+                            if(!rooms.includes(c)) rooms.push(c);
+                        }
+                    }
+                }
+                
+                // Fallbacks if detection missed
+                if (days.length === 0) days = [0];
+                if (rooms.length === 0) rooms = [1];
+
+                // Build blocks
+                let blocks = [];
+                for (let i = 0; i < headers.length; i++) {
+                    let h = headers[i];
+                    if (h.includes('cc') || h.includes('course') || h.includes('code')) {
+                        if (!blocks.some(b => b.ccIdx === i)) {
+                            let secIdx = -1, tIdx = -1;
+                            // Search Left for Section
+                            for(let j = i - 1; j >= Math.max(0, i - 2); j--) {
+                                if (headers[j].includes('sec') || headers[j] === 's' || headers[j].includes('batch')) {
+                                    secIdx = j; break;
+                                }
+                            }
+                            // Search Right for Teacher
+                            for (let j = i + 1; j <= i + 3 && j < headers.length; j++) {
+                                let subH = headers[j];
+                                if (subH === 't' || subH.includes('teach') || subH === 'faculty' || subH.includes('initial')) {
+                                    tIdx = j; break;
+                                }
+                            }
+                            blocks.push({ secIdx: secIdx, ccIdx: i, tIdx: tIdx, refCol: secIdx !== -1 ? secIdx : i });
+                        }
+                    }
+                }
+
+                let currentDays = {}, currentRooms = {};
+
+                for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                    let row = rows[r];
+                    if (!row || row.length === 0 || row.every(cell => !String(cell).trim())) continue;
+
+                    days.forEach(dIdx => {
+                        let dVal = String(row[dIdx] || "").trim();
+                        if (dVal && !dVal.toLowerCase().includes('shift') && dVal.length >= 3) {
+                            currentDays[dIdx] = (dVal.charAt(0).toUpperCase() + dVal.slice(1).toLowerCase()).substring(0, 3);
+                        }
+                    });
+
+                    rooms.forEach(rIdx => {
+                        let rVal = String(row[rIdx] || "").trim();
+                        if (rVal && !rVal.toLowerCase().includes('room') && rVal.toLowerCase() !== 'rm' && rVal.toLowerCase() !== 'day') {
+                            currentRooms[rIdx] = rVal;
+                        }
+                    });
+
+                    blocks.forEach(b => {
+                        let secVal = b.secIdx !== -1 ? String(row[b.secIdx] || "").trim() : "-";
+                        let ccVal = String(row[b.ccIdx] || "").trim().replace(/\r?\n|\r/g, " ");
+                        let tVal = b.tIdx !== -1 ? String(row[b.tIdx] || "").trim().replace(/\r?\n|\r/g, " ") : "-";
+
+                        if (ccVal && !ccVal.toLowerCase().includes('course') && !ccVal.toLowerCase().includes('break')) {
+                            
+                            let thisTime = filledTimes[b.ccIdx] || filledTimes[b.ccIdx - 1] || (b.secIdx !== -1 ? filledTimes[b.secIdx] : "-") || "-";
+
+                            let dIdx = days.slice().reverse().find(d => d < b.refCol);
+                            let thisDay = (dIdx !== undefined && currentDays[dIdx]) ? currentDays[dIdx] : (days.length > 0 ? currentDays[days[0]] : "-");
+
+                            let rIdx = rooms.slice().reverse().find(rm => rm < b.refCol);
+                            let thisRoom = (rIdx !== undefined && currentRooms[rIdx]) ? currentRooms[rIdx] : (rooms.length > 0 ? currentRooms[rooms[0]] : "-");
+
+                            if (thisDay !== "-" && thisTime !== "-") {
+                                let normCode = normalizeCourseCode(ccVal);
+                                let metaData = courseMetadata[normCode] || { title: "Unknown", credit: "-" };
+
+                                flatData.push({
+                                    "Day": thisDay,
+                                    "Room": thisRoom,
+                                    "Time": thisTime,
+                                    "Section": secVal,
+                                    "Course Code": ccVal,
+                                    "Course Title": metaData.title,
+                                    "Credit": metaData.credit,
+                                    "Teacher": tVal
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+            
+            let uniqueMap = new Map();
+            flatData.forEach(row => {
+                let key = `${row.Day}|${row.Room}|${row.Time}|${row.Section}|${row["Course Code"]}|${row.Teacher}`;
+                uniqueMap.set(key, row);
+            });
+            
+            flatData = Array.from(uniqueMap.values());
+            rawDataTimes = allTimes.filter(t => t !== "-");
+            return flatData;
+        }
+
+        function getUniqueOptions() {
+            const options = {};
+            if (rawData.length > 0) {
+                const keys = Object.keys(rawData[0]);
+                keys.forEach(key => {
+                    const vals = new Set();
+                    rawData.forEach(row => {
+                        let val = row[key];
+                        if (val !== undefined && val !== null && String(val).trim() !== "" && String(val).trim() !== "-") vals.add(String(val).trim());
+                    });
+                    options[key] = Array.from(vals).sort();
+                });
+            }
+            return options;
+        }
+
+        function generateFilteredData() {
+            let filtered = rawData;
+            Object.keys(filters).forEach(key => {
+                if (filters[key] && filters[key] !== '') {
+                    filtered = filtered.filter(row => row[key] !== undefined && row[key] !== null && row[key].toString().toLowerCase() === filters[key].toString().toLowerCase());
+                }
+            });
+            previewData = filtered;
+            isGenerated = true;
+            renderTableState();
+            updatePrintArea();
+        }
+
+        function renderFilters() {
+            filterContainer.innerHTML = '';
+            if (rawData.length === 0) {
+                filterContainer.innerHTML = '<p class="text-xs text-slate-500 italic">No data loaded yet.</p>';
+                btnGenerate.disabled = true;
+                return;
+            }
+            
+            btnGenerate.disabled = false;
+            const uniqueOptions = getUniqueOptions();
+            const keysToShow = ["Day", "Course Code", "Course Title", "Section", "Teacher", "Room"];
+            
+            keysToShow.forEach(key => {
+                if(!uniqueOptions[key] || uniqueOptions[key].length === 0) return;
+                const div = document.createElement('div');
+                div.className = 'flex flex-col gap-1';
+                
+                const label = document.createElement('label');
+                label.className = 'text-xs font-medium text-slate-600';
+                label.textContent = key;
+                
+                const select = document.createElement('select');
+                select.className = 'w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-lg px-2.5 py-1.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-xs appearance-none cursor-pointer';
+                select.innerHTML = `<option value="">All ${key}</option>`;
+                
+                uniqueOptions[key].forEach(opt => select.innerHTML += `<option value="${opt}">${opt}</option>`);
+                select.addEventListener('change', (e) => {
+                    filters[key] = e.target.value;
+                    generateFilteredData();
+                });
+                
+                div.appendChild(label);
+                div.appendChild(select);
+                filterContainer.appendChild(div);
+            });
+        }
+
+        function getDynamicHeading() {
+            let activeFilters = Object.values(filters).filter(val => val !== '');
+            return activeFilters.length > 0 ? `CSE Class Routine - ${activeFilters.join(' - ')}` : `CSE Class Routine`;
+        }
+
+        function renderTableState() {
+            exportButtons.classList.toggle('opacity-50', !isGenerated || previewData.length === 0);
+            exportButtons.classList.toggle('pointer-events-none', !isGenerated || previewData.length === 0);
+            
+            if (rawData.length === 0) {
+                tableWrapper.innerHTML = `
+                    <div class="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <i class="fa-solid fa-cloud-arrow-down text-3xl text-slate-300 mb-3 block"></i>
+                        <p class="text-slate-500 font-medium text-sm">Click "Auto Fetch" or Upload file to load data.</p>
+                    </div>`;
+                previewTitle.innerHTML = `<i class="fa-solid fa-table-cells-large text-blue-600"></i> Class Routine`;
+                return;
+            }
+            if (!isGenerated) {
+                tableWrapper.innerHTML = `
+                    <div class="text-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <i class="fa-solid fa-filter text-3xl text-slate-300 mb-3 block"></i>
+                        <p class="text-slate-500 font-medium text-sm">Select filters to view routine.</p>
+                    </div>`;
+                previewTitle.innerHTML = `<i class="fa-solid fa-table-cells-large text-blue-600"></i> Class Routine`;
+                return;
+            }
+            if (previewData.length === 0) {
+                tableWrapper.innerHTML = `
+                    <div class="text-center py-16 bg-slate-50 rounded-2xl border border-slate-200">
+                        <i class="fa-regular fa-face-frown-open text-3xl text-slate-300 mb-3 block"></i>
+                        <p class="text-slate-500 font-medium text-sm">No classes found.</p>
+                    </div>`;
+                previewTitle.innerHTML = `<i class="fa-solid fa-table-cells-large text-blue-600"></i> Class Routine`;
+                return;
+            }
+
+            previewTitle.innerHTML = `<i class="fa-solid fa-table-cells-large text-blue-600"></i> ${getDynamicHeading()}`;
+
+            const dayOrder = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            let groupedData = {};
+            
+            previewData.forEach(row => {
+                if (!groupedData[row.Day]) groupedData[row.Day] = [];
+                groupedData[row.Day].push(row);
+            });
+
+            let tableHtml = `<div class="w-full bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-w-[700px]">`;
+            tableHtml += `
+                <div class="text-center p-5 border-b border-slate-200 bg-slate-50 rounded-t-xl">
+                    <h1 class="text-lg sm:text-xl font-extrabold text-slate-800 uppercase tracking-wider">Northern University of Business and Technology, Khulna</h1>
+                    <h2 class="text-sm font-bold text-blue-600 mt-1.5">${getDynamicHeading()}</h2>
+                </div>
+            `;
+
+            dayOrder.forEach(day => {
+                if (!groupedData[day]) return;
+                let rows = groupedData[day];
+                rows.sort((a, b) => rawDataTimes.indexOf(a.Time) - rawDataTimes.indexOf(b.Time));
+                
+                tableHtml += `
+                    <div class="bg-slate-100 px-3 py-1.5 border-b border-t border-slate-200 first:border-t-0 font-bold text-slate-800 text-[12px] tracking-wide uppercase">
+                        ${fullDays[day] || day}
+                    </div>
+                    <table class="w-full text-left border-collapse text-[11px]">
+                        <thead class="bg-slate-800 text-white">
+                            <tr>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-24">Time</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-16">Room</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-16">Section</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-20">Course Code</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold">Course Title</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-10">Cr.</th>
+                                <th class="p-1.5 border border-slate-300 font-semibold w-24">Teacher</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                rows.forEach(r => {
+                    tableHtml += `
+                        <tr class="hover:bg-blue-50 border-b border-slate-200 transition-colors">
+                            <td class="p-1.5 border border-slate-300 whitespace-nowrap text-slate-700 font-medium">${r.Time}</td>
+                            <td class="p-1.5 border border-slate-300 text-slate-800 font-medium">${r.Room}</td>
+                            <td class="p-1.5 border border-slate-300 text-slate-800">${r.Section}</td>
+                            <td class="p-1.5 border border-slate-300 font-bold text-blue-700">${r["Course Code"]}</td>
+                            <td class="p-1.5 border border-slate-300 font-medium text-slate-700">${r["Course Title"]}</td>
+                            <td class="p-1.5 border border-slate-300 text-slate-600 text-center">${r.Credit}</td>
+                            <td class="p-1.5 border border-slate-300 font-medium text-slate-800">${r.Teacher}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += `</tbody></table>`;
+            });
+            tableHtml += `</div>`;
+            tableWrapper.innerHTML = tableHtml;
+        }
+
+        async function fetchAllData(rUrl, oUrl) {
+            if (!rUrl) { showMessage('Routine URL cannot be empty.', 'error'); return; }
+            const loadingToast = showMessage("Fetching external data...", "warning");
+            
+            try {
+                if (typeof XLSX === 'undefined') throw new Error("Excel library not loaded.");
+                if (oUrl) await fetchCourseOfferings(oUrl);
+
+                let fetchUrl = rUrl;
+                const idMatch = rUrl.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+                
+                if (idMatch) {
+                    fetchUrl = `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=xlsx`;
+                }
+
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error("Failed to fetch Routine. File might not be public.");
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const wb = XLSX.read(arrayBuffer, { type: 'array' });
+                
+                rawData = processExcelData(wb);
+                previewData = rawData;
+                filters = {};
+                isGenerated = true;
+                
+                renderFilters();
+                renderTableState();
+                updatePrintArea();
+                
+                if (loadingToast) loadingToast.remove();
+                
+                if (rawData.length > 0) {
+                    showMessage('Data Merged & Loaded!', 'success');
+                } else {
+                    showMessage('No valid routine data found.', 'error');
+                }
+
+            } catch (error) {
+                if (loadingToast) loadingToast.remove();
+                showMessage(error.message || 'Fetch failed. Ensure links are valid.', 'error');
+            }
+        }
+
+        btnFetch.addEventListener('click', () => fetchAllData(routineUrlInput.value.trim(), offeringUrlInput.value.trim()));
+
+        // File Upload Handlers
+        fileUploadInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (typeof XLSX === 'undefined') return showMessage('Library loading, please wait.', 'error');
+            
+            const loadingToast = showMessage("Processing file...", "warning");
+            const oUrl = offeringUrlInput.value.trim();
+            if(oUrl && Object.keys(courseMetadata).length === 0) await fetchCourseOfferings(oUrl);
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const bstr = evt.target.result;
+                    const wb = XLSX.read(bstr, { type: 'binary' });
+                    rawData = processExcelData(wb);
+                    if (rawData.length === 0) { 
+                        loadingToast.remove(); 
+                        return showMessage('No valid data!', 'error'); 
+                    }
+                    previewData = rawData;
+                    filters = {};
+                    isGenerated = true;
+                    
+                    renderFilters();
+                    renderTableState();
+                    updatePrintArea();
+                    
+                    loadingToast.remove();
+                    showMessage('File Uploaded!', 'success');
+                } catch (error) {
+                    loadingToast.remove();
+                    showMessage('Error reading file.', 'error');
+                }
+            };
+            reader.readAsBinaryString(file);
+            e.target.value = '';
+        });
+
+        btnGenerate.addEventListener('click', generateFilteredData);
+
+        function updatePrintArea() {
+            if (previewData.length === 0) { printArea.innerHTML = ''; return; }
+            const dynamicHeading = getDynamicHeading();
+            const dayOrder = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            
+            let groupedData = {};
+            previewData.forEach(row => {
+                if (!groupedData[row.Day]) groupedData[row.Day] = [];
+                groupedData[row.Day].push(row);
+            });
+
+            let html = `<div style="text-align:center; margin-bottom: 12px;">
+                <h1 style="font-size: 16px; font-weight: bold; margin: 0; color: #000; text-transform: uppercase;">Northern University of Business and Technology, Khulna</h1>
+                <h2 style="font-size: 13px; font-weight: bold; margin: 5px 0 0 0; color: #333;">${dynamicHeading}</h2>
+            </div>`;
+
+            dayOrder.forEach(day => {
+                if (!groupedData[day]) return;
+                let rows = groupedData[day];
+                rows.sort((a, b) => rawDataTimes.indexOf(a.Time) - rawDataTimes.indexOf(b.Time));
+
+                html += `<h3>${fullDays[day] || day}</h3>`;
+                html += `<table>
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Time</th>
+                            <th style="width: 10%;">Room</th>
+                            <th style="width: 10%;">Section</th>
+                            <th style="width: 15%;">Course Code</th>
+                            <th style="width: 25%;">Course Title</th>
+                            <th style="width: 5%;">Cr.</th>
+                            <th style="width: 20%;">Teacher</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                rows.forEach(r => {
+                    html += `<tr>
+                        <td>${r.Time}</td><td>${r.Room}</td><td>${r.Section}</td>
+                        <td><strong>${r["Course Code"]}</strong></td>
+                        <td>${r["Course Title"]}</td><td style="text-align:center;">${r.Credit}</td>
+                        <td>${r.Teacher}</td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            });
+            printArea.innerHTML = html;
+        }
+
+        // Export Functionality
+        document.getElementById('btn-pdf').addEventListener('click', () => previewData.length > 0 && window.print());
+
+        document.getElementById('btn-doc').addEventListener('click', () => {
+            if (previewData.length === 0) return;
+            const dynamicHeading = getDynamicHeading();
+            const dayOrder = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            
+            let groupedData = {};
+            previewData.forEach(row => { 
+                if (!groupedData[row.Day]) groupedData[row.Day] = []; 
+                groupedData[row.Day].push(row); 
+            });
+
+            let bodyHtml = `<div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase; color: #0f172a;">Northern University of Business and Technology, Khulna</h1>
+                <h2 style="font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; margin: 6px 0 0 0; color: #3b82f6;">${dynamicHeading}</h2>
+            </div>`;
+
+            dayOrder.forEach(day => {
+                if (!groupedData[day]) return;
+                let rows = groupedData[day];
+                rows.sort((a, b) => rawDataTimes.indexOf(a.Time) - rawDataTimes.indexOf(b.Time));
+
+                bodyHtml += `<h3 style="font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; margin: 10px 0 5px 0; color: #1e293b; text-transform: uppercase;">${fullDays[day] || day}</h3>`;
+                bodyHtml += '<table border="1" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; text-align: left; font-size: 10px; margin-bottom: 10px;">';
+                bodyHtml += '<thead><tr>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 15%;">Time</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 10%;">Room</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 10%;">Section</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 15%;">Course Code</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 25%;">Course Title</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 5%;">Cr.</th>';
+                bodyHtml += '<th style="background-color: #e2e8f0; padding: 4px; width: 20%;">Teacher</th>';
+                bodyHtml += '</tr></thead><tbody>';
+
+                rows.forEach(r => {
+                    bodyHtml += `<tr>
+                        <td style="padding: 4px;">${r.Time}</td><td style="padding: 4px;">${r.Room}</td>
+                        <td style="padding: 4px;">${r.Section}</td><td style="padding: 4px; font-weight: bold;">${r["Course Code"]}</td>
+                        <td style="padding: 4px;">${r["Course Title"]}</td><td style="padding: 4px; text-align:center;">${r.Credit}</td>
+                        <td style="padding: 4px;">${r.Teacher}</td>
+                    </tr>`;
+                });
+                bodyHtml += '</tbody></table>';
+            });
+
+            const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${dynamicHeading}</title></head><body>${bodyHtml}</body></html>`;
+            const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); 
+            a.href = url; 
+            a.download = `${dynamicHeading.replace(/[^a-z0-9]/gi, '_')}.doc`;
+            a.click(); 
+            URL.revokeObjectURL(url);
+            showMessage('Docs downloaded!', 'success');
+        });
+
+        document.getElementById('btn-excel').addEventListener('click', () => {
+            if (typeof XLSX === 'undefined') return showMessage("Library not loaded.", "error");
+            if (previewData.length === 0) return;
+            const dynamicHeading = getDynamicHeading();
+            const dayOrder = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+            
+            let groupedData = {};
+            previewData.forEach(row => { 
+                if (!groupedData[row.Day]) groupedData[row.Day] = []; 
+                groupedData[row.Day].push(row); 
+            });
+
+            const matrix = [
+                ["Northern University of Business and Technology, Khulna"],
+                [dynamicHeading],
+                []
+            ];
+            
+            dayOrder.forEach(day => {
+                if (!groupedData[day]) return;
+                let rows = groupedData[day];
+                rows.sort((a, b) => rawDataTimes.indexOf(a.Time) - rawDataTimes.indexOf(b.Time));
+
+                matrix.push([], [fullDays[day] || day], ["Time", "Room", "Section", "Course Code", "Course Title", "Credit", "Teacher"]);
+                rows.forEach(r => matrix.push([r.Time, r.Room, r.Section, r["Course Code"], r["Course Title"], r.Credit, r.Teacher]));
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(matrix);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Routine");
+            XLSX.writeFile(wb, `${dynamicHeading.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
+            showMessage('Sheet downloaded!', 'success');
+        });
+
+        document.getElementById('btn-image').addEventListener('click', () => {
+            if (previewData.length === 0) return;
+            const tableContainer = document.querySelector('#table-wrapper > div');
+            
+            if (tableContainer) {
+                const originalMaxHeight = tableContainer.style.maxHeight;
+                const originalOverflowY = tableContainer.style.overflowY;
+                
+                tableContainer.style.maxHeight = 'none'; 
+                tableContainer.style.overflowY = 'visible';
+                
+                html2canvas(tableContainer, { backgroundColor: '#ffffff', scale: 2 }).then(canvas => {
+                    tableContainer.style.maxHeight = originalMaxHeight; 
+                    tableContainer.style.overflowY = originalOverflowY;
+                    
+                    const link = document.createElement('a');
+                    link.download = `${getDynamicHeading().replace(/[^a-z0-9]/gi, '_')}.png`;
+                    link.href = canvas.toDataURL('image/png'); 
+                    link.click();
+                    showMessage('Photo downloaded!', 'success');
+                }).catch(() => {
+                    tableContainer.style.maxHeight = originalMaxHeight; 
+                    tableContainer.style.overflowY = originalOverflowY;
+                    showMessage('Failed to generate image.', 'error');
+                });
+            }
+        });
+
+        // Initialize display state
+        renderFilters();
+        renderTableState();
+
+        // Auto-fetch logic on window load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if(routineUrlInput.value) {
+                    fetchAllData(routineUrlInput.value, offeringUrlInput.value);
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
